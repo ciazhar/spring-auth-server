@@ -13,6 +13,29 @@
     <script type="text/javascript"
             src="/webjars/bootstrap/js/bootstrap.min.js"></script>
 </head>
-<h1>SSO berhasil</h1>
+
+<body ng-app="app" ng-controller="home as home">
+<h1>Login</h1>
+<div class="container" ng-show="!home.authenticated">
+    With Facebook: <a href="/login">click here</a>
+</div>
+<div class="container" ng-show="home.authenticated">
+    <h1>SSO berhasil</h1>
+    Logged in as: <span ng-bind="home.user"></span>
+</div>
+<script type="text/javascript" src="/webjars/angularjs/angular.min.js"></script>
+<script type="text/javascript">
+    angular.module("app", []).controller("home", function($http) {
+        var self = this;
+        $http.get("/user").success(function(data) {
+            self.user = data.userAuthentication.details.name;
+            self.authenticated = true;
+        }).error(function() {
+            self.user = "N/A";
+            self.authenticated = false;
+        });
+    });
+</script>
+
 </body>
 </html>
