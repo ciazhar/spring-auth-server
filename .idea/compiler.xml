@@ -7,10 +7,12 @@
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <module name="social-simple" />
+        <module name="spring-security-oauth-sso" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
       <module name="social-simple" target="1.8" />
+      <module name="spring-security-oauth-sso" target="1.8" />
     </bytecodeTargetLevel>
   </component>
 </project>
