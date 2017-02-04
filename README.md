@@ -15,7 +15,7 @@
   ```
     http://start.spring.io/
   ```
-- Masukkan data, sesuaikan dengan dependency yang dibutuhkan(web, security) lalu download
+- Masukkan data, sesuaikan dengan dependency yang dibutuhkan(web, security,oauth2) lalu download
 - Add project ke text editor
 
 Note :
@@ -145,10 +145,100 @@ Pada Project tersebut terdapat 3 buah file utama yaitu :
       };
     });
   ```
-- Konfigurasi Server Side
+- Konfigurasi Server Side (java/domain/config/KonfigurasiSecurity.java)
   ```
     .and()
     .logout().logoutSuccessUrl("/").permitAll()
     .and()
     .csrf().csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse());
+  ```
+
+#Memisahkan Otorisasi Facebook dari Spring Security
+- Mengubah anotasi @EnableOAuth2Sso dengan @EnableOAuth2Client (java/domain/config/KonfigurasiSecurity.java)
+
+     Sejatinya adalah aplikasi yang telah kita buat tadi berdiri di persis di atas Spring Security. Hal ini dikarenakan kita menggunakan anotasi @EnableOAuth2Sso. Anotasi tersebut sendiri terdiri dari 2 fitur yaitu OAuth2 client dan Oauth2 authentification.
+     Untuk OAuth2 client dia dapat berinteraksi dengan resource OAuth2 yang disediakan oleh Authorization Server (dalam konteks ini facebook Authorization Server).
+     Sedangkan OAuth2 authentification dia berfungsi untuk menyelaraskan aplikasi kita dengan REST milik Spring Security
+     Jadi ketika 2 fitur itu digunakan untuk SSO ke facebook saja, maka kita hanya dapat SSO ke facebook saja
+     Oleh karena itu kita akan mengganti anotasi @EnableOAuth2Sso dengan @EnableOAuth2Client
+  ```
+    @Configurable
+    @EnableOAuth2Client
+    @EnableWebSecurity
+    public class KonfigurasiSecurity extends WebSecurityConfigurerAdapter {
+
+    }
+  ```
+- Membuat Filter authentification
+  ```
+    @Autowired
+    OAuth2ClientContext oauth2ClientContext;
+
+    ///Bean untuk memberitahu filter tentang registrasi client dengan facebook
+    @Bean
+    @ConfigurationProperties("facebook.client")
+    public AuthorizationCodeResourceDetails facebook() {
+      return new AuthorizationCodeResourceDetails();
+    }
+
+    ///Bean untuk memberitahu filter tentang dimana user end point di facebook
+    @Bean
+    @ConfigurationProperties("facebook.resource")
+    public ResourceServerProperties facebookResource() {
+      return new ResourceServerProperties();
+    }
+
+    private Filter ssoFilter() {
+      OAuth2ClientAuthenticationProcessingFilter facebookFilter = new OAuth2ClientAuthenticationProcessingFilter("/login/facebook");
+      OAuth2RestTemplate facebookTemplate = new OAuth2RestTemplate(facebook(), oauth2ClientContext);
+      facebookFilter.setRestTemplate(facebookTemplate);
+      UserInfoTokenServices tokenServices = new UserInfoTokenServices(facebookResource().getUserInfoUri(), facebook().getClientId());
+      tokenServices.setRestTemplate(facebookTemplate);
+      facebookFilter.setTokenServices(tokenServices);
+      return facebookFilter;
+    }
+
+
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+      http.antMatcher("/**")
+      ...
+      .addFilterBefore(ssoFilter(), BasicAuthenticationFilter.class);
+    }
+  ```
+- Mengubah konfigurasi OAuth2
+  ```
+    facebook:
+      client:
+        clientId: 233668646673605
+        clientSecret: 33b17e044ee6a4fa383f46ec6e28ea1d
+        accessTokenUri: https://graph.facebook.com/oauth/access_token
+        userAuthorizationUri: https://www.facebook.com/dialog/oauth
+        tokenName: oauth_token
+        authenticationScheme: query
+        clientAuthenticationScheme: form
+      resource:
+        userInfoUri: https://graph.facebook.com/me      
+    logging:
+      level:
+        org.springframework.security: DEBUG
+  ```
+- Ganti URL pada UI
+  ```
+    <div class="container" ng-show="!home.authenticated">
+      <div>
+      With Facebook: <a href="/login/facebook">click here</a>
+      </div>
+    </div>
+  ```
+- Buat Konfigurasi untuk Redirect
+  ```
+    @Bean
+    public FilterRegistrationBean oauth2ClientFilterRegistration(OAuth2ClientContextFilter filter) {
+      FilterRegistrationBean registration = new FilterRegistrationBean();
+      registration.setFilter(filter);
+      registration.setOrder(-100);
+      return registration;
+    }
+
   ```
