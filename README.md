@@ -1,4 +1,4 @@
-# Aplikasi Single Sign On
+# Aplikasi Authorization Sever dengan Spring Security
 
 #Setup Development Environment
 - JDK 1.8
