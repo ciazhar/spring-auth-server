@@ -125,6 +125,15 @@ Pada Project tersebut terdapat 3 buah file utama yaitu :
         }
     }
   ```
+#Pretty print JSON
+- Konfigurasi YAML (resources/application.yml)
+  ```  
+    spring:
+      jackson:
+        serialization:
+          INDENT_OUTPUT: true
+  ```
+
 #Custom Logout
 - Konfigurasi client Side (resources/static/index.html)
   ```
@@ -169,7 +178,7 @@ Pada Project tersebut terdapat 3 buah file utama yaitu :
 
     }
   ```
-- Membuat Filter authentification
+- Membuat Filter authentification(java/domain/config/KonfigurasiSecurity.java)
   ```
     @Autowired
     OAuth2ClientContext oauth2ClientContext;
@@ -206,7 +215,7 @@ Pada Project tersebut terdapat 3 buah file utama yaitu :
       .addFilterBefore(ssoFilter(), BasicAuthenticationFilter.class);
     }
   ```
-- Mengubah konfigurasi OAuth2
+- Mengubah konfigurasi OAuth2(resources/application.yml)
   ```
     facebook:
       client:
@@ -223,7 +232,7 @@ Pada Project tersebut terdapat 3 buah file utama yaitu :
       level:
         org.springframework.security: DEBUG
   ```
-- Ganti URL pada UI
+- Ganti URL pada UI(resources/static/index.html)
   ```
     <div class="container" ng-show="!home.authenticated">
       <div>
@@ -231,7 +240,7 @@ Pada Project tersebut terdapat 3 buah file utama yaitu :
       </div>
     </div>
   ```
-- Buat Konfigurasi untuk Redirect
+- Buat Konfigurasi untuk Redirect(java/domain/config/KonfigurasiSecurity.java)
   ```
     @Bean
     public FilterRegistrationBean oauth2ClientFilterRegistration(OAuth2ClientContextFilter filter) {
@@ -241,4 +250,61 @@ Pada Project tersebut terdapat 3 buah file utama yaitu :
       return registration;
     }
 
+  ```
+#Tambah Authentification untuk github
+- Edit UI (resources/static/index.html)
+  ```
+    With Github: <a href="/login/github">click here</a>
+  ```
+- Tambah Konfigurasi untuk Github(java/domain/config/KonfigurasiSecurity.java)
+  ```
+    @Bean
+    @ConfigurationProperties("github.client")
+    public AuthorizationCodeResourceDetails github() {
+        return new AuthorizationCodeResourceDetails();
+    }
+
+    @Bean
+    @ConfigurationProperties("github.resource")
+    public ResourceServerProperties githubResource() {
+        return new ResourceServerProperties();
+    }
+  ```
+- Edit Filter(java/domain/config/KonfigurasiSecurity.java)
+  ```
+    private Filter ssoFilter() {
+        CompositeFilter filter = new CompositeFilter();
+        List<Filter> filters = new ArrayList<>();
+
+        OAuth2ClientAuthenticationProcessingFilter facebookFilter = new OAuth2ClientAuthenticationProcessingFilter("/login/facebook");
+        OAuth2RestTemplate facebookTemplate = new OAuth2RestTemplate(facebook(), oauth2ClientContext);
+        facebookFilter.setRestTemplate(facebookTemplate);
+        UserInfoTokenServices tokenServices = new UserInfoTokenServices(facebookResource().getUserInfoUri(), facebook().getClientId());
+        tokenServices.setRestTemplate(facebookTemplate);
+        facebookFilter.setTokenServices(tokenServices);
+        filters.add(facebookFilter);
+
+        OAuth2ClientAuthenticationProcessingFilter githubFilter = new OAuth2ClientAuthenticationProcessingFilter("/login/github");
+        OAuth2RestTemplate githubTemplate = new OAuth2RestTemplate(github(), oauth2ClientContext);
+        githubFilter.setRestTemplate(githubTemplate);
+        tokenServices = new UserInfoTokenServices(githubResource().getUserInfoUri(), github().getClientId());
+        tokenServices.setRestTemplate(githubTemplate);
+        githubFilter.setTokenServices(tokenServices);
+        filters.add(githubFilter);
+
+        filter.setFilters(filters);
+        return filter;
+    }
+  ```
+- Tambah Konfigurasi OAuth2 Github(resources/application.yml)
+  ```
+    github:
+      client:
+        clientId: bd1c0a783ccdd1c9b9e4
+        clientSecret: 1a9030fbca47a5b2c28e92f19050bb77824b5ad1
+        accessTokenUri: https://github.com/login/oauth/access_token
+        userAuthorizationUri: https://github.com/login/oauth/authorize
+        clientAuthenticationScheme: form
+      resource:
+        userInfoUri: https://api.github.com/user
   ```
