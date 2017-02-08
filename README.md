@@ -275,7 +275,6 @@ Pada Project tersebut terdapat 3 buah file utama yaitu :
     private Filter ssoFilter() {
         CompositeFilter filter = new CompositeFilter();
         List<Filter> filters = new ArrayList<>();
-
         OAuth2ClientAuthenticationProcessingFilter facebookFilter = new OAuth2ClientAuthenticationProcessingFilter("/login/facebook");
         OAuth2RestTemplate facebookTemplate = new OAuth2RestTemplate(facebook(), oauth2ClientContext);
         facebookFilter.setRestTemplate(facebookTemplate);
@@ -283,7 +282,6 @@ Pada Project tersebut terdapat 3 buah file utama yaitu :
         tokenServices.setRestTemplate(facebookTemplate);
         facebookFilter.setTokenServices(tokenServices);
         filters.add(facebookFilter);
-
         OAuth2ClientAuthenticationProcessingFilter githubFilter = new OAuth2ClientAuthenticationProcessingFilter("/login/github");
         OAuth2RestTemplate githubTemplate = new OAuth2RestTemplate(github(), oauth2ClientContext);
         githubFilter.setRestTemplate(githubTemplate);
@@ -291,7 +289,6 @@ Pada Project tersebut terdapat 3 buah file utama yaitu :
         tokenServices.setRestTemplate(githubTemplate);
         githubFilter.setTokenServices(tokenServices);
         filters.add(githubFilter);
-
         filter.setFilters(filters);
         return filter;
     }
@@ -308,3 +305,51 @@ Pada Project tersebut terdapat 3 buah file utama yaitu :
       resource:
         userInfoUri: https://api.github.com/user
   ```
+
+#Membuat authorization server
+- Merapikan ssoFilter
+
+  Note : kita akan membagi menjadi 2 agar terlihat rapi   
+  ```
+    private Filter ssoFilter() {
+    		CompositeFilter filter = new CompositeFilter();
+    		List<Filter> filters = new ArrayList<>();
+    		filters.add(ssoFilter(facebook(), "/login/facebook"));
+    		filters.add(ssoFilter(github(), "/login/github"));
+    		filter.setFilters(filters);
+    		return filter;
+    	}
+    
+    private Filter ssoFilter(ClientResources client, String path) {
+        OAuth2ClientAuthenticationProcessingFilter filter = new OAuth2ClientAuthenticationProcessingFilter(
+                path);
+        OAuth2RestTemplate template = new OAuth2RestTemplate(client.getClient(), oauth2ClientContext);
+        filter.setRestTemplate(template);
+        UserInfoTokenServices tokenServices = new UserInfoTokenServices(
+                client.getResource().getUserInfoUri(), client.getClient().getClientId());
+        tokenServices.setRestTemplate(template);
+        filter.setTokenServices(tokenServices);
+        return filter;
+    }
+
+  ```
+- membuat class ClientResources untuk mengatur otorisasi client dan akses resource yang pada tadinya terpisah
+  ```
+      class ClientResources {
+      
+        @NestedConfigurationProperty
+        private AuthorizationCodeResourceDetails client = new AuthorizationCodeResourceDetails();
+      
+        @NestedConfigurationProperty
+        private ResourceServerProperties resource = new ResourceServerProperties();
+      
+        public AuthorizationCodeResourceDetails getClient() {
+          return client;
+        }
+      
+        public ResourceServerProperties getResource() {
+          return resource;
+        }
+      }
+   ```
+- 
